@@ -4,7 +4,7 @@ import pandas as pd
 from shapely.geometry import shape, Point
 from geopy.geocoders import Nominatim
 from collections import Counter
-import sys
+import time
 
 def get_POI_in_LSOA(location=None, POI_type=None):
 
@@ -29,10 +29,27 @@ def get_POI_in_LSOA(location=None, POI_type=None):
     out center;
     '''
 
+    # handling status 429 codes
+    # overpass does not include a Retry_after header for 429 calls for wel'll sleep for generic time
+
     response = requests.get(overpass_url,
                        params={'data':overpass_query})
 
-    # get API data in json format
+    if response.status_code != 200:
+
+        print('Bad status code.')
+
+        if response.status_code == 429:
+
+            print(response.status_code)
+            print('Too many requests sleeping for 10s.')
+            time.sleep(10)
+
+            response = requests.get(overpass_url,
+                       params={'data':overpass_query})
+        else:
+            print('Bad status code:', response.status_code)
+
     data = response.json()
 
     # open geojson data with lsoa polygons for west yorkshire
@@ -56,7 +73,3 @@ def get_POI_in_LSOA(location=None, POI_type=None):
 
     # return this as a pandas series
     return pd.Series(Counter(poi_count))
-
-result = get_POI_in_LSOA(location=str(sys.argv[1]), POI_type=sys.argv[2])
-
-print(result)
